@@ -3,30 +3,39 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import os
 from datetime import datetime
+import csv
+from io import TextIOWrapper
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load .env file
 load_dotenv()
 
+# Flask setup
 app = Flask(__name__, static_folder="../frontend", static_url_path="/")
 CORS(app)
 
-# Configuration
+# DB setup
 db_path = os.getenv("DATABASE", "sqlite.db")
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///../instance/{db_path}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
+# DB model
 class Voucher(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(100), unique=True, nullable=False)
     type = db.Column(db.String(20), nullable=False)
     expiry = db.Column(db.Date, nullable=False)
 
+# Routes
 @app.route('/')
 def index():
     return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/admin')
+def admin_panel():
+    return send_from_directory(app.static_folder, 'admin.html')
 
 @app.route('/check-voucher', methods=['POST'])
 def check_voucher():
@@ -34,25 +43,13 @@ def check_voucher():
     code = data.get('code', '').strip()
 
     voucher = Voucher.query.filter_by(code=code).first()
-    if voucher:
-        if voucher.expiry >= datetime.today().date():
-            return jsonify({
-                "valid": True,
-                "type": voucher.type,
-                "expires": voucher.expiry.strftime('%Y-%m-%d')
-            })
+    if voucher and voucher.expiry >= datetime.today().date():
+        return jsonify({
+            "valid": True,
+            "type": voucher.type,
+            "expires": voucher.expiry.strftime('%Y-%m-%d')
+        })
     return jsonify({"valid": False})
-
-if __name__ == '__main__':
-    os.makedirs("../instance", exist_ok=True)
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True)
-
-
-from flask import send_file
-import csv
-from io import TextIOWrapper
 
 @app.route('/add-voucher', methods=['POST'])
 def add_voucher():
@@ -86,6 +83,7 @@ def upload_csv():
         expiry = datetime.strptime(row['expiry'].strip(), '%Y-%m-%d').date()
         if not Voucher.query.filter_by(code=code).first():
             db.session.add(Voucher(code=code, type=type_, expiry=expiry))
+
     db.session.commit()
     return jsonify({'status': 'uploaded'})
 
@@ -97,3 +95,11 @@ def get_vouchers():
         'type': v.type,
         'expiry': v.expiry.strftime('%Y-%m-%d')
     } for v in vouchers])
+
+# Entry point for local or Render
+if __name__ == '__main__':
+    os.makedirs("../instance", exist_ok=True)
+    with app.app_context():
+        db.create_all()
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
