@@ -20,7 +20,6 @@ app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///../instance/{db_path}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
-
 # DB model
 class Voucher(db.Model):
     id = db.Column(db.Integer, primary_key=True)
