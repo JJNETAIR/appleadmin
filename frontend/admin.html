@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel - Apple WiFi</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Panel</h1>
+        <form id="manual-form">
+            <h3>Add Voucher Manually</h3>
+            <input type="text" id="manual-code" placeholder="Code" required>
+            <input type="text" id="manual-type" placeholder="Type (15-day or 30-day)" required>
+            <input type="date" id="manual-expiry" required>
+            <button type="submit">Add Voucher</button>
+        </form>
+
+        <form id="csv-form" enctype="multipart/form-data">
+            <h3>Upload CSV File</h3>
+            <input type="file" id="csv-file" accept=".csv" required>
+            <button type="submit">Upload CSV</button>
+        </form>
+
+        <h3>Existing Vouchers</h3>
+        <ul id="voucher-list"></ul>
+    </div>
+    <script>
+        document.getElementById('manual-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const code = document.getElementById('manual-code').value;
+            const type = document.getElementById('manual-type').value;
+            const expiry = document.getElementById('manual-expiry').value;
+
+            await fetch('/add-voucher', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({code, type, expiry})
+            });
+
+            loadVouchers();
+        });
+
+        document.getElementById('csv-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('file', document.getElementById('csv-file').files[0]);
+
+            await fetch('/upload-csv', {
+                method: 'POST',
+                body: formData
+            });
+
+            loadVouchers();
+        });
+
+        async function loadVouchers() {
+            const res = await fetch('/vouchers');
+            const vouchers = await res.json();
+            const list = document.getElementById('voucher-list');
+            list.innerHTML = '';
+            vouchers.forEach(v => {
+                const li = document.createElement('li');
+                li.textContent = `${v.code} - ${v.type} - Expires: ${v.expiry}`;
+                list.appendChild(li);
+            });
+        }
+
+        window.onload = loadVouchers;
+    </script>
+</body>
+</html>
